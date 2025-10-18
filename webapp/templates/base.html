@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{% block title %}PDF Merger{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+  </head>
+  <body>
+    <header class="app-header">
+      <h1>PDF Merger</h1>
+    </header>
+    <main class="app-main">
+      {% block content %}{% endblock %}
+    </main>
+    <footer class="app-footer">
+      <p>&copy; {{ current_year | default(2024) }} PDF Merger</p>
+    </footer>
+  </body>
+</html>

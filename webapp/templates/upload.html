@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% block title %}Upload PDFs{% endblock %}
+{% block content %}
+  <section class="card">
+    <h2>Upload PDF files</h2>
+    <form id="upload-form" method="post" enctype="multipart/form-data">
+      <div class="form-group">
+        <label for="pdf-files">Select PDF files</label>
+        <input id="pdf-files" name="files" type="file" accept="application/pdf" multiple required />
+        <p class="help-text">Choose one or more PDF files to merge or unlock.</p>
+      </div>
+
+      <div class="form-group">
+        <label for="shared-password">Shared password (optional)</label>
+        <input id="shared-password" name="shared_password" type="password" placeholder="Enter password used by all files" />
+        <p class="help-text">Use this when all PDFs share the same password.</p>
+      </div>
+
+      <div class="form-group">
+        <button type="button" id="toggle-per-file" class="secondary">Enable per-file passwords</button>
+      </div>
+
+      <div id="per-file-passwords" class="form-group hidden" aria-hidden="true">
+        <h3>Per-file passwords</h3>
+        <p class="help-text">Provide passwords for files that differ from the shared password.</p>
+        <div id="per-file-container"></div>
+      </div>
+
+      <div class="form-group">
+        <button type="submit" class="primary">Upload</button>
+      </div>
+    </form>
+  </section>
+
+  <script>
+    const fileInput = document.getElementById('pdf-files');
+    const perFileContainer = document.getElementById('per-file-container');
+    const perFileWrapper = document.getElementById('per-file-passwords');
+    const toggleButton = document.getElementById('toggle-per-file');
+
+    let perFileEnabled = false;
+
+    function renderPerFileInputs(files) {
+      perFileContainer.innerHTML = '';
+
+      Array.from(files).forEach((file, index) => {
+        const group = document.createElement('div');
+        group.className = 'form-group nested';
+
+        const label = document.createElement('label');
+        const inputId = `password-${index}`;
+        label.setAttribute('for', inputId);
+        label.textContent = `${file.name}`;
+
+        const input = document.createElement('input');
+        input.type = 'password';
+        input.id = inputId;
+        input.name = `file_passwords[${file.name}]`;
+        input.placeholder = 'Password for this file';
+
+        group.appendChild(label);
+        group.appendChild(input);
+        perFileContainer.appendChild(group);
+      });
+    }
+
+    function updateVisibility() {
+      if (perFileEnabled) {
+        perFileWrapper.classList.remove('hidden');
+        perFileWrapper.setAttribute('aria-hidden', 'false');
+        toggleButton.textContent = 'Disable per-file passwords';
+        renderPerFileInputs(fileInput.files);
+      } else {
+        perFileWrapper.classList.add('hidden');
+        perFileWrapper.setAttribute('aria-hidden', 'true');
+        toggleButton.textContent = 'Enable per-file passwords';
+        perFileContainer.innerHTML = '';
+      }
+    }
+
+    toggleButton.addEventListener('click', () => {
+      perFileEnabled = !perFileEnabled;
+      updateVisibility();
+    });
+
+    fileInput.addEventListener('change', () => {
+      if (perFileEnabled) {
+        renderPerFileInputs(fileInput.files);
+      }
+    });
+  </script>
+{% endblock %}
