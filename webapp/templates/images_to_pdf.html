@@ -1,0 +1,315 @@
+{% extends "base.html" %}
+{% block title %}Images to PDF{% endblock %}
+{% block content %}
+  <section class="card">
+    <a class="back-link" href="{{ url_for('routes.home') }}">← Back to tools</a>
+    <h2>Images to PDF</h2>
+    <p class="lead">Upload your images, preview them, and arrange the order before downloading a combined PDF.</p>
+
+    <form id="image-form" method="post" enctype="multipart/form-data" action="{{ url_for('routes.images_to_pdf') }}">
+      <div class="form-group">
+        <label for="image-files">Select images</label>
+        <input id="image-files" name="images" type="file" accept="image/*" multiple />
+        <p class="help-text">Supported formats include JPG, PNG, GIF, BMP, and TIFF.</p>
+      </div>
+
+      <div class="preview-area" id="preview-area">
+        <p class="empty-message" id="empty-message">No images selected yet. Choose files to see previews here.</p>
+        <div class="preview-grid" id="preview-grid" role="list"></div>
+      </div>
+
+      <div class="form-actions">
+        <button type="button" class="secondary" id="clear-images" disabled>Clear selection</button>
+        <button type="submit" class="primary" id="convert-button" disabled>Convert to PDF</button>
+      </div>
+    </form>
+
+    <div class="status" id="status-message" role="status" aria-live="polite"></div>
+  </section>
+
+  <script>
+    (function () {
+      const fileInput = document.getElementById('image-files');
+      const previewGrid = document.getElementById('preview-grid');
+      const previewArea = document.getElementById('preview-area');
+      const emptyMessage = document.getElementById('empty-message');
+      const convertButton = document.getElementById('convert-button');
+      const clearButton = document.getElementById('clear-images');
+      const statusMessage = document.getElementById('status-message');
+      const form = document.getElementById('image-form');
+
+      const originalConvertText = convertButton.textContent;
+
+      /** @type {{ file: File }[]} */
+      let selections = [];
+      let dragSourceIndex = null;
+
+      function setStatus(message, state) {
+        statusMessage.textContent = message || '';
+        if (!message) {
+          statusMessage.removeAttribute('data-state');
+          return;
+        }
+        statusMessage.setAttribute('data-state', state || 'info');
+      }
+
+      function updateControls() {
+        const hasItems = selections.length > 0;
+        convertButton.disabled = !hasItems;
+        clearButton.disabled = !hasItems;
+        previewArea.classList.toggle('has-items', hasItems);
+        if (hasItems) {
+          emptyMessage.setAttribute('aria-hidden', 'true');
+        } else {
+          emptyMessage.removeAttribute('aria-hidden');
+        }
+      }
+
+      function moveSelection(fromIndex, toIndex) {
+        if (toIndex < 0 || toIndex >= selections.length || fromIndex === toIndex) {
+          return;
+        }
+        const [item] = selections.splice(fromIndex, 1);
+        selections.splice(toIndex, 0, item);
+        renderPreviews();
+      }
+
+      function removeSelection(index) {
+        selections.splice(index, 1);
+        renderPreviews();
+      }
+
+      function createPreviewCard(item, index) {
+        const card = document.createElement('div');
+        card.className = 'preview-card';
+        card.setAttribute('role', 'listitem');
+        card.setAttribute('draggable', 'true');
+        card.dataset.index = String(index);
+
+        const order = document.createElement('span');
+        order.className = 'preview-order';
+        order.textContent = String(index + 1);
+        card.appendChild(order);
+
+        const figure = document.createElement('div');
+        figure.className = 'preview-image-wrapper';
+        const imageElement = document.createElement('img');
+        imageElement.alt = `Preview of ${item.file.name}`;
+        const objectUrl = URL.createObjectURL(item.file);
+        imageElement.src = objectUrl;
+        imageElement.addEventListener('load', () => {
+          URL.revokeObjectURL(objectUrl);
+        });
+        imageElement.addEventListener('error', () => {
+          URL.revokeObjectURL(objectUrl);
+          imageElement.alt = `${item.file.name} preview unavailable`;
+        });
+        figure.appendChild(imageElement);
+        card.appendChild(figure);
+
+        const name = document.createElement('p');
+        name.className = 'preview-name';
+        name.textContent = item.file.name;
+        card.appendChild(name);
+
+        const controls = document.createElement('div');
+        controls.className = 'preview-controls';
+
+        const upButton = document.createElement('button');
+        upButton.type = 'button';
+        upButton.className = 'icon-button';
+        upButton.innerHTML = '↑';
+        upButton.title = 'Move image up';
+        upButton.setAttribute('aria-label', `Move ${item.file.name} earlier in the order`);
+        upButton.addEventListener('click', () => moveSelection(index, index - 1));
+        controls.appendChild(upButton);
+
+        const downButton = document.createElement('button');
+        downButton.type = 'button';
+        downButton.className = 'icon-button';
+        downButton.innerHTML = '↓';
+        downButton.title = 'Move image down';
+        downButton.setAttribute('aria-label', `Move ${item.file.name} later in the order`);
+        downButton.addEventListener('click', () => moveSelection(index, index + 1));
+        controls.appendChild(downButton);
+
+        const deleteButton = document.createElement('button');
+        deleteButton.type = 'button';
+        deleteButton.className = 'icon-button danger';
+        deleteButton.innerHTML = '✕';
+        deleteButton.title = 'Remove image';
+        deleteButton.setAttribute('aria-label', `Remove ${item.file.name}`);
+        deleteButton.addEventListener('click', () => removeSelection(index));
+        controls.appendChild(deleteButton);
+
+        card.appendChild(controls);
+
+        return card;
+      }
+
+      function renderPreviews() {
+        previewGrid.innerHTML = '';
+        selections.forEach((item, index) => {
+          const card = createPreviewCard(item, index);
+          previewGrid.appendChild(card);
+        });
+        updateControls();
+      }
+
+      function resetSelections() {
+        selections = [];
+        fileInput.value = '';
+        renderPreviews();
+      }
+
+      fileInput.addEventListener('change', () => {
+        const files = Array.from(fileInput.files || []);
+        if (!files.length) {
+          return;
+        }
+
+        const newSelections = files.map((file) => ({ file }));
+        selections = selections.concat(newSelections);
+        fileInput.value = '';
+        setStatus('', 'info');
+        renderPreviews();
+      });
+
+      clearButton.addEventListener('click', () => {
+        resetSelections();
+        setStatus('Selection cleared.', 'info');
+      });
+
+      previewGrid.addEventListener('dragstart', (event) => {
+        const card = event.target.closest('.preview-card');
+        if (!card) {
+          return;
+        }
+        const indexValue = Number(card.dataset.index);
+        if (Number.isNaN(indexValue)) {
+          return;
+        }
+        dragSourceIndex = indexValue;
+        if (event.dataTransfer) {
+          event.dataTransfer.effectAllowed = 'move';
+          event.dataTransfer.setData('text/plain', card.dataset.index || '0');
+        }
+        card.classList.add('dragging');
+      });
+
+      previewGrid.addEventListener('dragend', (event) => {
+        const card = event.target.closest('.preview-card');
+        if (card) {
+          card.classList.remove('dragging');
+        }
+        previewGrid.querySelectorAll('.drag-over').forEach((element) => {
+          element.classList.remove('drag-over');
+        });
+        dragSourceIndex = null;
+      });
+
+      previewGrid.addEventListener('dragover', (event) => {
+        if (dragSourceIndex === null) {
+          return;
+        }
+        const card = event.target.closest('.preview-card');
+        if (!card) {
+          return;
+        }
+        event.preventDefault();
+        card.classList.add('drag-over');
+      });
+
+      previewGrid.addEventListener('dragleave', (event) => {
+        const card = event.target.closest('.preview-card');
+        if (card) {
+          card.classList.remove('drag-over');
+        }
+      });
+
+      previewGrid.addEventListener('drop', (event) => {
+        if (dragSourceIndex === null) {
+          return;
+        }
+        event.preventDefault();
+        const card = event.target.closest('.preview-card');
+        if (!card) {
+          return;
+        }
+        const targetIndex = Number(card.dataset.index);
+        if (Number.isNaN(targetIndex)) {
+          return;
+        }
+        const rect = card.getBoundingClientRect();
+        const dropAfter = event.clientY - rect.top > rect.height / 2;
+        let insertIndex = targetIndex + (dropAfter ? 1 : 0);
+        const [item] = selections.splice(dragSourceIndex, 1);
+        if (insertIndex > selections.length) {
+          insertIndex = selections.length;
+        }
+        if (insertIndex > dragSourceIndex) {
+          insertIndex -= 1;
+        }
+        selections.splice(insertIndex, 0, item);
+        dragSourceIndex = null;
+        renderPreviews();
+      });
+
+      form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        if (!selections.length) {
+          setStatus('Please add at least one image before converting.', 'error');
+          return;
+        }
+
+        setStatus('Converting images to PDF…', 'pending');
+        convertButton.disabled = true;
+        convertButton.textContent = 'Converting…';
+        clearButton.disabled = true;
+
+        try {
+          const formData = new FormData();
+          selections.forEach((entry) => {
+            formData.append('images', entry.file, entry.file.name);
+          });
+
+          const response = await fetch(form.action, {
+            method: 'POST',
+            body: formData,
+          });
+
+          if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(errorText || 'Conversion failed.');
+          }
+
+          const blob = await response.blob();
+          const objectUrl = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          const disposition = response.headers.get('Content-Disposition') || '';
+          const filenameMatch = disposition.match(/filename="?([^";]+)"?/i);
+          const downloadName = filenameMatch ? filenameMatch[1] : 'images.pdf';
+          link.href = objectUrl;
+          link.download = downloadName;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          URL.revokeObjectURL(objectUrl);
+
+          const processed = Number(response.headers.get('X-Images-Processed')) || selections.length;
+          const skipped = Number(response.headers.get('X-Images-Skipped-Count')) || 0;
+          const summary = skipped
+            ? `Created a PDF from ${processed} image${processed === 1 ? '' : 's'}. Skipped ${skipped}.`
+            : `Created a PDF from ${processed} image${processed === 1 ? '' : 's'}.`;
+          setStatus(summary, 'success');
+        } catch (error) {
+          const message = error instanceof Error ? error.message : 'Conversion failed.';
+          setStatus(message, 'error');
+        } finally {
+          convertButton.textContent = originalConvertText;
+          updateControls();
+        }
+      });
+    })();
+  </script>
+{% endblock %}
