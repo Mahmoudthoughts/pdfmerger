@@ -19,6 +19,18 @@ body {
   padding: 1rem 2rem;
 }
 
+.app-header .brand {
+  color: inherit;
+  text-decoration: none;
+  font-size: 1.75rem;
+  font-weight: 600;
+}
+
+.app-header .brand:hover,
+.app-header .brand:focus {
+  text-decoration: underline;
+}
+
 .app-main {
   padding: 2rem;
   display: flex;
@@ -32,6 +44,78 @@ body {
   max-width: 640px;
   width: 100%;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+}
+
+.card .back-link {
+  display: inline-block;
+  margin-bottom: 0.75rem;
+  color: #0d6efd;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.card .back-link:hover,
+.card .back-link:focus {
+  text-decoration: underline;
+}
+
+.icon-grid {
+  max-width: 900px;
+}
+
+.icon-grid .lead {
+  margin-top: 0.25rem;
+  margin-bottom: 1.5rem;
+  color: #495057;
+}
+
+.icon-grid .grid {
+  display: grid;
+  gap: 1.5rem;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+}
+
+.icon-grid .tool {
+  background: linear-gradient(135deg, #ffffff, #f8f9ff);
+  border: 1px solid #dee2e6;
+  border-radius: 12px;
+  padding: 1.5rem;
+  text-decoration: none;
+  color: inherit;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  min-height: 180px;
+}
+
+.icon-grid .tool:hover,
+.icon-grid .tool:focus {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.15);
+}
+
+.icon-grid .tool.disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+  box-shadow: none;
+  transform: none;
+}
+
+.icon-grid .tool .icon {
+  font-size: 2.5rem;
+  margin-bottom: 1rem;
+}
+
+.icon-grid .tool h3 {
+  margin: 0 0 0.5rem 0;
+  font-size: 1.25rem;
+}
+
+.icon-grid .tool p {
+  margin: 0;
+  color: #495057;
+  font-size: 0.95rem;
 }
 
 .form-group {
@@ -102,5 +186,9 @@ button.secondary:hover {
 
   .card {
     padding: 1.5rem;
+  }
+
+  .icon-grid .grid {
+    gap: 1rem;
   }
 }

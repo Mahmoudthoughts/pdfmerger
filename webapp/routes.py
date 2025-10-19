@@ -13,8 +13,15 @@ bp = Blueprint("routes", __name__)
 
 
 @bp.get("/")
-def upload() -> str:
-    """Render the upload interface."""
+def home() -> str:
+    """Render the application home page."""
+
+    return render_template("home.html")
+
+
+@bp.get("/merge")
+def merge_form() -> str:
+    """Render the upload interface for merging PDFs."""
 
     return render_template("upload.html")
 
