@@ -2,6 +2,7 @@
 {% block title %}Upload PDFs{% endblock %}
 {% block content %}
   <section class="card">
+    <a class="back-link" href="{{ url_for('routes.home') }}">← Back to tools</a>
     <h2>Upload PDF files</h2>
     <form id="upload-form" method="post" enctype="multipart/form-data" action="{{ url_for('routes.merge') }}">
       <div class="form-group">

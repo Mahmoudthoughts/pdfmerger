@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}PDF Toolkit{% endblock %}
+{% block content %}
+  <section class="card icon-grid">
+    <h2>PDF Toolkit</h2>
+    <p class="lead">Choose a tool below to get started.</p>
+    <div class="grid">
+      <a class="tool" href="{{ url_for('routes.merge_form') }}">
+        <div class="icon" aria-hidden="true">🗂️</div>
+        <h3>Merge &amp; Unlock PDFs</h3>
+        <p>Combine multiple PDFs and remove shared or individual passwords.</p>
+      </a>
+      <a class="tool disabled" href="#" aria-disabled="true">
+        <div class="icon" aria-hidden="true">🖼️</div>
+        <h3>Images to PDF</h3>
+        <p>Coming soon: merge multiple images into a single PDF.</p>
+      </a>
+      <a class="tool disabled" href="#" aria-disabled="true">
+        <div class="icon" aria-hidden="true">🔒</div>
+        <h3>Protect PDF</h3>
+        <p>Coming soon: add passwords to your PDF documents.</p>
+      </a>
+      <a class="tool disabled" href="#" aria-disabled="true">
+        <div class="icon" aria-hidden="true">✂️</div>
+        <h3>Split PDF</h3>
+        <p>Coming soon: split a PDF into individual pages.</p>
+      </a>
+    </div>
+  </section>
+{% endblock %}
