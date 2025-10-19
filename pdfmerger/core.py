@@ -40,6 +40,28 @@ class MergeOutput:
         return self.buffer is not None and self.merged_count > 0
 
 
+@dataclass
+class ImageInput:
+    """An image stream selected for conversion to PDF."""
+
+    name: str
+    stream: BinaryIO
+
+
+@dataclass
+class ImageToPDFOutput:
+    """Result from converting image streams into a single PDF."""
+
+    buffer: Optional[io.BytesIO]
+    processed_count: int
+    skipped_count: int
+    skipped_files: List[str]
+
+    @property
+    def has_output(self) -> bool:
+        return self.buffer is not None and self.processed_count > 0
+
+
 def natural_key(value: str) -> List[object]:
     """Sort helper that treats digits numerically: file2 < file10 < file100."""
 
@@ -150,6 +172,92 @@ def merge_pdf_streams(
     return MergeOutput(
         buffer=output_buffer,
         merged_count=merged_count,
+        skipped_count=skipped_count,
+        skipped_files=skipped_files,
+    )
+
+
+def images_to_pdf_streams(inputs: Iterable[ImageInput]) -> ImageToPDFOutput:
+    """Convert image streams into a single in-memory PDF document."""
+
+    try:
+        from PIL import Image
+    except Exception as exc:  # pragma: no cover - import guard kept for CLI compatibility
+        raise RuntimeError(
+            "Pillow is required. Install with: python -m pip install Pillow"
+        ) from exc
+
+    processed_entries: List[tuple[str, "Image.Image"]] = []
+    skipped_files: List[str] = []
+
+    for image_input in inputs:
+        stream = image_input.stream
+        try:
+            stream.seek(0)
+        except Exception:
+            stream = io.BytesIO(stream.read())  # type: ignore[arg-type]
+            image_input.stream = stream
+
+        try:
+            stream.seek(0)
+            with Image.open(stream) as opened:
+                opened.load()
+                if opened.mode != "RGB":
+                    image = opened.convert("RGB")
+                else:
+                    image = opened.copy()
+        except Exception:
+            skipped_files.append(image_input.name)
+            continue
+
+        processed_entries.append((image_input.name, image))
+
+    processed_count = len(processed_entries)
+    skipped_count = len(skipped_files)
+
+    if processed_count == 0:
+        return ImageToPDFOutput(
+            buffer=None,
+            processed_count=0,
+            skipped_count=skipped_count,
+            skipped_files=skipped_files,
+        )
+
+    output_buffer = io.BytesIO()
+
+    _, first_image = processed_entries[0]
+    remaining_images = [image for _, image in processed_entries[1:]]
+
+    try:
+        if remaining_images:
+            first_image.save(
+                output_buffer,
+                format="PDF",
+                save_all=True,
+                append_images=remaining_images,
+            )
+        else:
+            first_image.save(output_buffer, format="PDF")
+    except Exception:
+        output_buffer.close()
+        for _, image in processed_entries:
+            image.close()
+        return ImageToPDFOutput(
+            buffer=None,
+            processed_count=0,
+            skipped_count=skipped_count + processed_count,
+            skipped_files=skipped_files
+            + [name for name, _ in processed_entries],
+        )
+
+    output_buffer.seek(0)
+
+    for _, image in processed_entries:
+        image.close()
+
+    return ImageToPDFOutput(
+        buffer=output_buffer,
+        processed_count=processed_count,
         skipped_count=skipped_count,
         skipped_files=skipped_files,
     )
