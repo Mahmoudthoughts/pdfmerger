@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+﻿{% extends "base.html" %}
 {% block title %}PDF Toolkit{% endblock %}
 {% block content %}
   <section class="card icon-grid">
@@ -6,22 +6,27 @@
     <p class="lead">Choose a tool below to get started.</p>
     <div class="grid">
       <a class="tool" href="{{ url_for('routes.merge_form') }}">
-        <div class="icon" aria-hidden="true">🗂️</div>
+        <div class="icon badge merge" aria-hidden="true">M</div>
         <h3>Merge &amp; Unlock PDFs</h3>
         <p>Combine multiple PDFs and remove shared or individual passwords.</p>
       </a>
       <a class="tool" href="{{ url_for('routes.images_to_pdf_form') }}">
-        <div class="icon" aria-hidden="true">🖼️</div>
+        <div class="icon badge images" aria-hidden="true">I</div>
         <h3>Images to PDF</h3>
         <p>Combine JPG, PNG, and other image files into a single PDF.</p>
       </a>
+      <a class="tool" href="{{ url_for('routes.compress_form') }}">
+        <div class="icon badge compress" aria-hidden="true">C</div>
+        <h3>Compress PDF</h3>
+        <p>Shrink large PDFs by re-writing and compressing their content streams.</p>
+      </a>
       <a class="tool disabled" href="#" aria-disabled="true">
-        <div class="icon" aria-hidden="true">🔒</div>
+        <div class="icon badge protect" aria-hidden="true">P</div>
         <h3>Protect PDF</h3>
         <p>Coming soon: add passwords to your PDF documents.</p>
       </a>
       <a class="tool disabled" href="#" aria-disabled="true">
-        <div class="icon" aria-hidden="true">✂️</div>
+        <div class="icon badge split" aria-hidden="true">S</div>
         <h3>Split PDF</h3>
         <p>Coming soon: split a PDF into individual pages.</p>
       </a>

@@ -62,6 +62,21 @@ class ImageToPDFOutput:
         return self.buffer is not None and self.processed_count > 0
 
 
+@dataclass
+class CompressOutput:
+    """Result from compressing a single PDF."""
+
+    buffer: Optional[io.BytesIO]
+    pages: int
+    skipped: bool
+    skipped_reason: Optional[str]
+    source_name: str
+
+    @property
+    def has_output(self) -> bool:
+        return self.buffer is not None and not self.skipped
+
+
 def natural_key(value: str) -> List[object]:
     """Sort helper that treats digits numerically: file2 < file10 < file100."""
 
@@ -260,6 +275,94 @@ def images_to_pdf_streams(inputs: Iterable[ImageInput]) -> ImageToPDFOutput:
         processed_count=processed_count,
         skipped_count=skipped_count,
         skipped_files=skipped_files,
+    )
+
+
+def compress_pdf_stream(
+    pdf_input: PDFInput,
+    default_password: Optional[str] = None,
+) -> CompressOutput:
+    """
+    Re-write a PDF with compressed content streams.
+
+    This preserves pages but drops metadata to save a few bytes.
+    """
+
+    stream = pdf_input.stream
+    try:
+        stream.seek(0)
+    except Exception:
+        stream = io.BytesIO(stream.read())  # type: ignore[arg-type]
+        pdf_input.stream = stream
+
+    try:
+        stream.seek(0)
+        reader = PdfReader(stream)
+    except Exception:
+        return CompressOutput(
+            buffer=None,
+            pages=0,
+            skipped=True,
+            skipped_reason="Unable to read PDF",
+            source_name=pdf_input.name,
+        )
+
+    if getattr(reader, "is_encrypted", False):
+        passwords = _passwords_to_try(pdf_input, default_password)
+        unlocked = False
+        for password in passwords:
+            if password and try_decrypt(reader, password):
+                unlocked = True
+                break
+        if not unlocked:
+            return CompressOutput(
+                buffer=None,
+                pages=0,
+                skipped=True,
+                skipped_reason="Password required or incorrect",
+                source_name=pdf_input.name,
+            )
+
+    writer = PdfWriter()
+    pages = 0
+
+    for page in reader.pages:
+        try:
+            page.compress_content_streams()  # type: ignore[func-returns-value]
+        except Exception:
+            # If compression fails for a page, still include it uncompressed.
+            pass
+        writer.add_page(page)
+        pages += 1
+
+    # Drop metadata to avoid carrying over extra bytes.
+    try:
+        writer.remove_metadata()  # PyPDF2 >= 3.0
+    except Exception:
+        try:
+            writer.add_metadata({})  # Fallback for older versions
+        except Exception:
+            pass
+
+    output_buffer = io.BytesIO()
+    try:
+        writer.write(output_buffer)
+    except Exception:
+        return CompressOutput(
+            buffer=None,
+            pages=pages,
+            skipped=True,
+            skipped_reason="Failed to write compressed PDF",
+            source_name=pdf_input.name,
+        )
+
+    output_buffer.seek(0)
+    return CompressOutput(
+        buffer=output_buffer,
+        pages=pages,
+        skipped=False,
+        skipped_reason=None,
+        source_name=pdf_input.name,
     )
 
 

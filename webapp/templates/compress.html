@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+{% block title %}Compress PDF{% endblock %}
+{% block content %}
+  <section class="card">
+    <a class="back-link" href="{{ url_for('routes.home') }}">ƒ+? Back to tools</a>
+    <h2>Compress a PDF</h2>
+    <p class="lead">Upload a PDF and we'll re-write it with compressed content streams to help shrink the file size.</p>
+
+    <form id="compress-form" method="post" enctype="multipart/form-data" action="{{ url_for('routes.compress') }}">
+      <div class="form-group">
+        <label for="pdf-file">Select a PDF</label>
+        <input id="pdf-file" name="file" type="file" accept="application/pdf" required />
+        <p class="help-text">Large files may take a few moments to process.</p>
+      </div>
+
+      <div class="form-group">
+        <label for="pdf-password">Password (optional)</label>
+        <input id="pdf-password" name="password" type="password" placeholder="Enter password if the PDF is locked" />
+        <p class="help-text">Used only when the PDF is encrypted.</p>
+      </div>
+
+      <div class="form-actions">
+        <button type="submit" class="primary" id="compress-button">Compress PDF</button>
+      </div>
+    </form>
+
+    <div class="status" id="compress-status" role="status" aria-live="polite"></div>
+  </section>
+
+  <script>
+    (() => {
+      const form = document.getElementById('compress-form');
+      const fileInput = document.getElementById('pdf-file');
+      const passwordInput = document.getElementById('pdf-password');
+      const status = document.getElementById('compress-status');
+      const button = document.getElementById('compress-button');
+      const originalButtonText = button.textContent;
+
+      function setStatus(message, state) {
+        status.textContent = message || '';
+        if (!message) {
+          status.removeAttribute('data-state');
+        } else {
+          status.setAttribute('data-state', state || 'info');
+        }
+      }
+
+      form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const file = fileInput.files?.[0];
+        if (!file) {
+          setStatus('Please choose a PDF file to compress.', 'error');
+          return;
+        }
+
+        button.disabled = true;
+        button.textContent = 'Compressing...';
+        setStatus('Working on your PDF...', 'pending');
+
+        try {
+          const formData = new FormData();
+          formData.append('file', file, file.name);
+          if (passwordInput.value) {
+            formData.append('password', passwordInput.value);
+          }
+
+          const response = await fetch(form.action, {
+            method: 'POST',
+            body: formData,
+          });
+
+          if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(errorText || 'Compression failed.');
+          }
+
+          const blob = await response.blob();
+          const objectUrl = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          const disposition = response.headers.get('Content-Disposition') || '';
+          const filenameMatch = disposition.match(/filename="?([^";]+)"?/i);
+          const downloadName = filenameMatch ? filenameMatch[1] : `compressed_${file.name}`;
+          link.href = objectUrl;
+          link.download = downloadName;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          URL.revokeObjectURL(objectUrl);
+
+          const pages = Number(response.headers.get('X-PDFMerger-Pages')) || 0;
+          const summary = pages > 0
+            ? `Compressed PDF created (${pages} page${pages === 1 ? '' : 's'}).`
+            : 'Compressed PDF created.';
+          setStatus(summary, 'success');
+        } catch (error) {
+          const message = error instanceof Error ? error.message : 'Compression failed.';
+          setStatus(message, 'error');
+        } finally {
+          button.disabled = false;
+          button.textContent = originalButtonText;
+        }
+      });
+    })();
+  </script>
+{% endblock %}

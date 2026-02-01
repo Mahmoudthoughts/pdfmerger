@@ -10,7 +10,9 @@ from flask import Blueprint, Response, render_template, request, send_file
 from pdfmerger.core import (
     ImageInput,
     MergeOutput,
+    CompressOutput,
     PDFInput,
+    compress_pdf_stream,
     images_to_pdf_streams,
     merge_pdf_streams,
 )
@@ -37,6 +39,13 @@ def images_to_pdf_form() -> str:
     """Render the interface for converting images to a PDF."""
 
     return render_template("images_to_pdf.html")
+
+
+@bp.get("/compress")
+def compress_form() -> str:
+    """Render the interface for compressing a PDF."""
+
+    return render_template("compress.html")
 
 
 def _extract_per_file_passwords(form_data: t.Mapping[str, str]) -> dict[str, str]:
@@ -156,4 +165,38 @@ def images_to_pdf() -> Response | tuple[str, int]:
         response.headers["X-Images-Skipped"] = ",".join(result.skipped_files)
         response.headers["X-Images-Skipped-Count"] = str(result.skipped_count)
 
+    return response
+
+
+@bp.post("/compress")
+def compress() -> Response | tuple[str, int]:
+    """Accept a PDF upload and return a compressed copy."""
+
+    storage = request.files.get("file")
+    if not storage or not storage.filename:
+        return "No PDF file was uploaded.", 400
+
+    password = request.form.get("password") or None
+
+    stream = storage.stream
+    try:
+        stream.seek(0)
+    except Exception:
+        stream = io.BytesIO(storage.read())
+
+    pdf_input = PDFInput(name=storage.filename, stream=stream, password=password)
+    result: CompressOutput = compress_pdf_stream(pdf_input, default_password=password)
+
+    if not result.has_output or result.buffer is None:
+        reason = result.skipped_reason or "Unable to compress the provided PDF."
+        return reason, 400
+
+    output_name = f"compressed_{storage.filename}"
+    response = send_file(
+        result.buffer,
+        mimetype="application/pdf",
+        as_attachment=True,
+        download_name=output_name,
+    )
+    response.headers["X-PDFMerger-Pages"] = str(result.pages)
     return response
